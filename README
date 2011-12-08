@@ -1,0 +1,140 @@
+Arduino Bonjour Library, Source http://gkaindl.com/software/arduino-ethernet/bonjour
+
+I just make minor changes so this lib works fine with Arduino 1.0.
+
+Readme from their Website:
+
+
+
+Bonjour/Zeroconf with Arduino
+-----------------------------
+A small implementation of Bonjour/Zeroconf (Wikipedia) that can run on your ethernet-equipped Arduino board! It implements both MDNS (multicast DNS) and DNS-SD (DNS Service Discovery), so that you can register services from your Arduino, but also discover services registered by other nodes on the network.
+
+As examples, you can use this library to register a small web-server running on your Arduino, which can then be easily discovered by other users on your network. Or use it to discover nodes offering a service your Arduino sketch can work with. It's just like Bonjour running on your desktop.
+
+Documentation
+-------------
+The library ships with 4 extensively commented examples, but here's an additional run-down of the public methods. Nevertheless, I suggest to have a look at the examples for a short introduction to the library.
+
+int begin();
+int begin(const char* bonjourName);
+In order to initialize the library, you must call begin() before any other library method, but after your Ethernet shield itself has been initialized, preferably within your setup() function. When you initialize the library, you can supply an (arbitrary) name under which your Arduino board can then be referenced on the network.
+
+The default name is "arduino", which means that you can access the board conveniently on the Bonjour network via the MDNS name "arduino.local" — However, do not attach the ".local" postfix when you specify the name in begin().
+
+The method will return a non-zero result if the library could be initialized successfully, otherwise 0 will be returned.
+
+void run();
+You should call run() at least once per loop() iteration. This gives the Bonjour module a chance to fulfill your requests and to interact with the Bonjour network.
+
+If you fail to call run() periodically, the Bonjour library will not work at all.
+
+int setBonjourName(const char* bonjourName);
+You can use this method to change the Bonjour name of your Arduino board at any time after setting the initial name via begin(). Changing the Bonjour name after you have already registered services might cause some clients to fail to connect properly for a short time, until the name change has propagated.
+
+Do not include the ".local" postfix when you specify a new Bonjour name!
+
+This method returns a non-zero value on success and 0 if there was an internal (memory) error.
+
+int addServiceRecord(const char* name,
+                     uint16_t port,
+                     MDNSServiceProtocol_t proto);
+int addServiceRecord(const char* name,
+                     uint16_t port,
+                     MDNSServiceProtocol_t proto,
+                     const char* textContent);
+The addServiceRecord() methods enable you to register a service running on your Arduino board with the Bonjour network, so that it can be discovered by other Bonjour peers. The difference between them only is that the second version takes an additional text content argument, whereas the first one does not.
+
+The first argument is the name of your service. Typically, this is an instance name and a service name, separated by a dot. The service name needs to be additionally prefixed with an underscore. An incredibly extensive list of defined service names is available here.
+
+Examples of a valid name-argument would be "My Arduino Web Server._http" or "My Arduino iChat client._presence".
+
+The second argument specifies the port on which the service is listening on your Arduino board. As an example, webservers are typically listening on port 80. You need to make sure that you actually are listening for network traffic on the port!
+
+The third argument is the TCP/UDP-layer protocol your service is running on. Specify MDNSServiceTCP for TCP-based services or MDNSServiceUDP for UDP-based services.
+
+The "textContent" argument lets you specify a TXT record to be associated with your service. TXT records are typically used to contain additional information about a service, such as the initial path on the server in case of a HTTP endpoint. A good list of defined TXT keys for many services can be found here, and the DNS-SD TXT record format in general is described here. Specify the TXT record as a zero-terminated string.
+
+The method will return a non-zero value upon success and zero otherwise (for example, when memory is exhausted).
+
+void removeServiceRecord(uint16_t port,
+                         MDNSServiceProtocol_t proto);
+void removeServiceRecord(const char* name,
+                         uint16_t port,
+                         MDNSServiceProtocol_t proto);
+Call removeServiceRecord() to remove unregister a service from the Bonjour network. The arguments should match those given to a previous addServiceRecord() call. The service identified by the arguments will be removed, and an announcement of the removal will be distrubted to Bonjour peers immediately.
+
+The method returns a non-zero value on success and 0 on failure.
+
+void removeAllServiceRecords();
+You can use removeAllServiceRecords(); to remove all previously added service registrations at once, so that your Arduino board does not vend services anymore.
+
+void setNameResolvedCallback(BonjourNameFoundCallback newCallback);
+Use setNameResolvedCallback() to specify a callback function of your own, which will be called when you resolve a host name over Bonjour.
+
+The argument must be a pointer to a function which takes two arguments (in this order): A "const char*" and a "const byte[4]": The former will hold the host name that you wanted resolved, the latter will hold the IP address of the host (4 bytes) if it could be resolved, or NULL if no Bonjour peer responded to the query.
+
+Be sure to have a callback set before you attempt to resolve a host name with resolveName()!
+
+int resolveName(const char* name,
+                unsigned long timeout);
+Provided that you have already specified a callback, you can use resolveName() to find the IP address of a Bonjour host. The first argument is the host's Bonjour name (again, without the ".local" postfix), the second argument is a timeout (in milliseconds) that you want the query to run for before it times out, calling the callback with a NULL IP address argument.
+
+While a query is running, the Bonjour library will resend the query every second, until your timeout is reached or a response has been obtained.
+
+If you want to run a query indefinitely (for example, to wait for a host with a given Bonjour name to join the network), you can specify zero (0) as the timeout argument to disable the timeout mechanism.
+
+resolveName() will return a non-zero value on success or 0 on failure. Only one name query can run at any given time: Calling resolveName() again before the current query is finished will cause the current query to be overwritten by the new one.
+
+void cancelResolveName();
+If you want to stop a currently running name query, call cancelResolveName() to cancel it immediately. Your callback function will not be called in this case.
+
+int isResolvingName()
+Use isResolvingName() to find out whether the library is currently busy resolving a host name. If so, this method will return a non-zero value, otherwise it will return zero.
+
+void setServiceFoundCallback(BonjourServiceFoundCallback newCallback);
+setServiceFoundCallback() is used to specify a callback that is called when a service is discovered. You need to specify a callback of your own before you can discover services.
+
+The argument is a pointer to a function that takes the following arguments (in this order): A "const char*", an "MDNSServiceProtocol", another "const char*", a "const byte[4]", an "unsigned short" and one more "const char*": They will be filled with the service type (such as "_http"), the transport protocol (MDNSServiceTCP or MDNSServiceUDP), the service name (such as "My Arduino Web Server"), the service endpoint's IP address (4 bytes), the endpoint's port number and (if available) the service record's TXT contents (zero-terminated), NULL otherwise.
+
+When your service discovery timeout is reached, your callback will be called one more time, but all arguments (except the service type and protocol) will be NULL.
+
+If you do not specify a callback, you cannot discover any services.
+
+int startDiscoveringService(const char* serviceName,
+                            MDNSServiceProtocol_t proto,
+                            unsigned long timeout);
+startDiscoveringService() causes the Bonjour library to query the network for services of a particular type, provided that you have specified an appropriate callback.
+
+The first argument denotes the service type, prefixed by an underscore (such as "_http"). For a comprehensive list of service types, have a look here. The second argument is the desired transport protocol (either MDNSServiceTCP or MDNSServiceUDP, for TCP or UDP, respectively).
+
+The third argument is the timeout (or total duration) of the search in milliseconds. The Bonjour library will keep waiting for replies until this timeout is reached, when it will call the callback again, but with a NULL argument as service name and IP address, so that you know that the discovery time has elapsed.
+
+Note that the Bonjour library will resend the discovery request every 10 seconds: Thus, if you specify more than 10 seconds (10000 milliseconds) as timeout argument, you will receive duplicate results as well, so be prepared.
+
+You can specify a timeout value of zero (0) to let the discovery process run indefinitely.
+
+You can only discover a single service type concurrently, so subsequent calls of this method while another discovery is running will overwrite the old discovery request.
+
+void stopDiscoveringService();
+Call the stopDiscoveringService() method to immediately stop discovering services. In this case, your callback will not be called.
+
+int isDiscoveringService();
+Use the isDiscoveringService() method to find out if a service discovery is currently running: If so, a non-zero value will be returned. Otherwise, zero is returned.
+
+Notes a.k.a. "Things you should know"
+-------------------------------------
+Registering services is very reliable, but discovering services is not (due to the complexity of the process): If it is necessary for your application, you might want to run the discovery process more than once. Generally, it works rather well, though!
+Due to memory limitations, you can only discover a maximum of 6 service endpoints per host and service type. For example, if a host vends 10 HTTP endpoints, only the first 6 will be found. If you want to risk memory exhaustion/corruption, you can change the MDNS_MAX_SERVICES_PER_PACKET macro in EthernetBonjour.cpp.
+Also due to similar memory limitations, you can only vend up to 8 services running on your board. If you want to change this limitation, edit "NumMDNSServiceRecords" in EthernetBonjour.h (but note that the WIZnet chipset on the ethernet shield only supports 4 sockets anyway, one already taken up by the Bonjour library, so 8 services might be way too much anyway. Thus, you could also lower this constant to free up some memory).
+The library is rather large (about 14K) and will thus only fit onto Arduino boards with at least 32K of flash memory (such as the Duemilanove, the Nano 3.0 or the MEGA). You might be able to fit it onto older boards by getting rid of the discovery stuff if you're only interested in registering services, for example. Personally, I've developed the library on a Duemilanove and use it on MEGA boards.
+The library has only been tested with Apple's Bonjour (on both a small and rather large network): Service registration will most likely work with other implementations as well, service discovery might not — Give it a try and email me patches!
+The implementation adheres to the Zeroconf specs, but is rather "noisy" in that service registration is resent with a Time-To-Live of 2 minutes — This is because I do not want stale registrations to hang around for long when you reset your board, and a modern network should really be able to handle the additional couple of bytes every two minutes ;-)
+
+Pro Tip: Save code size if you don't need all features
+------------------------------------------------------
+Bonjour/ZeroConf is a complex protocol, so the full library is quite large and can eat up a lot of flash space on your Arduino. However, if all you want is giving your Arduino board a Bonjour name like arduino.local, so that you don't need to remember any IP addresses (or get them dynamically via DHCP), you can disable some advanced features at compile time for massive size savings (up to 7K).
+
+If you open the file EthernetBonjour.cpp within the library, you'll notice two macros defined right at the top: HAS_SERVICE_REGISTRATION and HAS_NAME_BROWSING. They are set to enabled per default. The first one governs some code necessary only if you want to register link-local Bonjour service endpoints. You can turn this off if you don't need it (saves about 1.5K). The latter controls name and service browsing: If you don't want to send any queries to link-local Bonjour, turn this off to save about 5.5K of code size. Service registration depends on name browsing, so you can either turn off just the former, or both, but not just the latter. If you turn off the features, but use them anyway, the resulting code will simply time out at all times.
+
+Again, the main focus for these (and the only thing I have tested) is to turn everything off except host name advertising, so that you can, as an example, have a sensor platform run at the Bonjour address MySensorPlatform.local for convenience, but don't need any other Bonjour features.
