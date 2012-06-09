@@ -69,7 +69,7 @@ typedef void (*BonjourNameFoundCallback)(const char*, const byte[4]);
 typedef void (*BonjourServiceFoundCallback)(const char*, MDNSServiceProtocol_t, const char*,
                                             const byte[4], unsigned short, const char*);
 
-#define  NumMDNSServiceRecords   (8)
+#define  NumMDNSServiceRecords   (1)
 
 class EthernetBonjourClass
 {
